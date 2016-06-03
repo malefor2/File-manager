@@ -3,17 +3,21 @@
 #include<dirent.h>
 #include<string.h>
 #include<unistd.h>
-#include<sys/types.h>	//implement cmd
+#include<sys/types.h>
 #include<sys/stat.h>
 #include<stdlib.h>
 #include"cmds.h"
 
 int sel= 0;
-int indexx[10000];
 char del(char*);
-char *selection[10000];
 char curdir[255];
 int row, col;
+void sortAbc(int);
+
+struct fileInfo{
+	char *name;
+	int dir;
+}file[10000], temp;
 
 int listFiles(bool show_hidden){
 	DIR *dir;
@@ -34,12 +38,12 @@ int listFiles(bool show_hidden){
 				strcat(path, ent->d_name);
 				stat(path, &type);
 				if(S_ISDIR(type.st_mode)){
-					indexx[n]= 1;
+					file[n].dir= 1;
 				}
 				else{
-					indexx[n]= 0;
+					file[n].dir= 0;
 				}
-				selection[j]= ent->d_name;
+				file[j].name= ent->d_name;
 				j++;
 				n++;
 				del(path);
@@ -49,17 +53,18 @@ int listFiles(bool show_hidden){
 			strcat(path, ent->d_name);
 			stat(path, &type);
 			if(S_ISDIR(type.st_mode)){
-				indexx[n]= 1;
+				file[n].dir= 1;
 			}
 			else{
-				indexx[n]= 0;
+				file[n].dir= 1;
 			}
-			selection[j]= ent->d_name;
+			file[j].name= ent->d_name;
 			j++;
 			n++;
 			del(path);
 		}
 	}
+	sortAbc(n);
 	return n;
 }
 
@@ -68,7 +73,7 @@ WINDOW *create_bar(int len){
 	loc_bar= newwin(1, col-2, row-2, 1);
 	wbkgd(loc_bar, COLOR_PAIR(2));
 	wattron(loc_bar, A_BOLD);
-	wprintw(loc_bar, "%s/%s", curdir, selection[sel]);
+	wprintw(loc_bar, "%s/%s", curdir, file[sel].name);
 	mvwprintw(loc_bar, 0, col-12, "%4i/%4i", sel+1, len, len);
 	wattroff(loc_bar, A_BOLD);
 	wrefresh(stdscr);
@@ -95,19 +100,19 @@ WINDOW *list_window(int len, int cam){
 	for(int i= cam; i<w; i++){
 		if(sel== i){
 			wattron(win, A_REVERSE);
-			wprintw(win, "%s\n", selection[i]);
+			wprintw(win, "%s\n", file[i].name);
 			wattroff(win, A_REVERSE);
 		}
 		else{
-			if(indexx[i]== 1){
+			if(file[i].dir== 1){
 				wattron(win, COLOR_PAIR(1));
 				wattron(win, A_BOLD);
-				wprintw(win, "%s\n", selection[i]);
+				wprintw(win, "%s\n", file[i].name);
 				wattroff(win, A_BOLD);
 				wattroff(win, COLOR_PAIR(1));
 			}
 			else{
-				wprintw(win, "%s\n", selection[i]);
+				wprintw(win, "%s\n", file[i].name);
 			}
 		}
 		wrefresh(stdscr);
@@ -117,8 +122,8 @@ WINDOW *list_window(int len, int cam){
 }
 
 void go_back(){
-	int i= strlen(curdir);
-	for(i; i>0; i--){
+	int i;
+	for(i= strlen(curdir); i>0; i--){
 		if(curdir[i]== '/'){
 			curdir[i]= '\0';
 			break;
@@ -135,8 +140,8 @@ void go_back(){
 }
 
 char del(char *path){
-	int i= strlen(path);
-	for(i; i>0; i--){
+	int i;
+	for(i= strlen(path); i>0; i--){
 		if(path[i]== '/'){
 			path[i+1]= '\0';
 			break;
@@ -146,16 +151,48 @@ char del(char *path){
 }
 
 void getCommand(){
-	char cmd[80];
+	char cmd[20];
+	char path[255];
+	strcpy(path, curdir);
+	strcat(path, "/");
+	strcat(path, file[sel].name);
 	echo();
 	mvaddch(row-1, 1, ':');
-	mvgetnstr(row-1, 2, cmd, sizeof(cmd));
+	mvgetstr(row-1, 2, cmd);
+	//mvscanw(row-1, 2, "%s", cmd);
+	if(strcmp(cmd, "delete")== 0){
+		if(file[sel].dir== 1){
+			printw("%s is a directory, delete?[y/n]", file[sel].name);
+			if(getch()!= 'y'){
+				noecho();
+				return;
+			}
+		}
+		int r= remove(path);
+		if(r== 0){
+			printw("file deleted");
+		}
+		else{
+			printw("error deleting file");
+		}
+		noecho();
+		return;
+	}
 	noecho();
 	return;
 }
 
 void sortAbc(int length){
-
+	for(int i= 1; i<length; i++){
+		for(int j= 0; j<length-i; j++){
+			if(strcmp(file[j].name, file[j+1].name)>0){
+				temp= file[j];
+				file[j]= file[j+1];
+				file[j+1]= temp;
+			}
+		}
+	}
+	return;
 }
 
 int main(int argc, char *argv[]){
@@ -187,13 +224,17 @@ int main(int argc, char *argv[]){
 		len= listFiles(hidden);
 		if(len<1){
 			clear();
-			selection[0]= "empty";
+			file[0].name= "empty";
+		}
+		if(len-1<sel){
+			sel=len-1;
 		}
 		list_window(len, view);
 		create_bar(len);
 		switch(ch= getch()){
 			case KEY_UP:
 				if(sel== 0){
+					clear();
 					break;
 				}
 				sel--;
@@ -215,9 +256,9 @@ int main(int argc, char *argv[]){
 				}
 				break;
 			case 10: case KEY_RIGHT:
-				if(indexx[sel]== 1){
+				if(file[sel].dir== 1){
 					strcat(curdir, "/");
-					strcat(curdir, selection[sel]);
+					strcat(curdir, file[sel].name);
 					curdir[strlen(curdir)+1]='\0';
 					sel= 0;
 				}
@@ -238,9 +279,6 @@ int main(int argc, char *argv[]){
 				break;
 			case 'H':
 				hidden= !hidden;
-				break;
-			case 'E':
-				deleteFile();
 				break;
 		}		
 		refresh();
