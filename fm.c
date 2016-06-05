@@ -56,7 +56,7 @@ int listFiles(bool show_hidden){
 				file[n].dir= 1;
 			}
 			else{
-				file[n].dir= 1;
+				file[n].dir= 0;
 			}
 			file[j].name= ent->d_name;
 			j++;
