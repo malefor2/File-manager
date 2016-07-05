@@ -17,6 +17,7 @@ void sortAbc(int);
 struct fileInfo{
 	char *name;
 	int dir;
+	int size;
 }file[10000], temp;
 
 int listFiles(bool show_hidden){
@@ -37,6 +38,7 @@ int listFiles(bool show_hidden){
 			if(ent->d_name[0]!= '.'){
 				strcat(path, ent->d_name);
 				stat(path, &type);
+				file[n].size= type.st_size;
 				if(S_ISDIR(type.st_mode)){
 					file[n].dir= 1;
 				}
@@ -115,6 +117,7 @@ WINDOW *list_window(int len, int cam){
 				wprintw(win, "%s\n", file[i].name);
 			}
 		}
+		//mvwprintw(win, i, col,  "%d\n", file[i].size);
 		wrefresh(stdscr);
 		wrefresh(win);
 	}
@@ -276,8 +279,9 @@ int main(int argc, char *argv[]){
 				break;
 			case ':':
 				getCommand();
+				clear();
 				break;
-			case 'H':
+			case 8:
 				hidden= !hidden;
 				break;
 		}		
