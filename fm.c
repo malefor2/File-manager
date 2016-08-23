@@ -1,5 +1,12 @@
+/*TODO:
+* rewrite list files function
+* dynamic array for files
+* more commands, searching
+* sort out colors
+*/
+
 #include<stdio.h>
-#include<ncurses.h>
+#include<curses.h>
 #include<dirent.h>
 #include<string.h>
 #include<unistd.h>
@@ -8,11 +15,13 @@
 #include<stdlib.h>
 #include"cmds.h"
 
+DIR *dir;
 int sel= 0;
 char del(char*);
 char curdir[255];
 int row, col;
 void sortAbc(int);
+int kek;
 
 struct fileInfo{
 	char *name;
@@ -21,7 +30,6 @@ struct fileInfo{
 }file[10000], temp;
 
 int listFiles(bool show_hidden){
-	DIR *dir;
 	int n= 0;
 	struct stat type;
 	int j= 0;
@@ -29,6 +37,11 @@ int listFiles(bool show_hidden){
 	strcpy(path, curdir);
 	strcat(path, "/");
 	dir= opendir(curdir);
+	if(dir == NULL){
+		printf("opendir fail");
+		endwin();
+		exit(1);
+	}
 	struct dirent *ent;
 	while((ent= readdir(dir))!= NULL){
 		if(strcmp(ent->d_name, "..")== 0 || strcmp(ent->d_name, ".")== 0){
@@ -65,6 +78,7 @@ int listFiles(bool show_hidden){
 			n++;
 			del(path);
 		}
+		kek++;
 	}
 	sortAbc(n);
 	return n;
@@ -75,7 +89,7 @@ WINDOW *create_bar(int len){
 	loc_bar= newwin(1, col-2, row-2, 1);
 	wbkgd(loc_bar, COLOR_PAIR(2));
 	wattron(loc_bar, A_BOLD);
-	wprintw(loc_bar, "%s/%s", curdir, file[sel].name);
+	wprintw(loc_bar, "%s", curdir);
 	mvwprintw(loc_bar, 0, col-12, "%4i/%4i", sel+1, len, len);
 	wattroff(loc_bar, A_BOLD);
 	wrefresh(stdscr);
@@ -131,12 +145,8 @@ void go_back(){
 			curdir[i]= '\0';
 			break;
 		}
-		else{
-			curdir[i]= ' ';
-		}
 	}
-	curdir[0]= '/';
-	if(i<2){
+	if(i<=2){
 		curdir[1]= '\0';
 	}
 	return;
@@ -224,7 +234,10 @@ int main(int argc, char *argv[]){
 	while(ch!= 'q'){
 		getmaxyx(stdscr, row, col);
 		move(row-1, 1);
+		closedir(dir);
 		len= listFiles(hidden);
+		//dir= NULL;
+		//closedir(dir);
 		if(len<1){
 			clear();
 			file[0].name= "empty";
@@ -237,7 +250,6 @@ int main(int argc, char *argv[]){
 		switch(ch= getch()){
 			case KEY_UP:
 				if(sel== 0){
-					clear();
 					break;
 				}
 				sel--;
@@ -260,12 +272,14 @@ int main(int argc, char *argv[]){
 				break;
 			case 10: case KEY_RIGHT:
 				if(file[sel].dir== 1){
-					strcat(curdir, "/");
+					if(strlen(curdir)>2){
+						strcat(curdir, "/");
+					}
 					strcat(curdir, file[sel].name);
 					curdir[strlen(curdir)+1]='\0';
 					sel= 0;
+					view= 0;
 				}
-				view= 0;
 				break;
 			case KEY_LEFT:
 				go_back();
@@ -284,7 +298,7 @@ int main(int argc, char *argv[]){
 			case 8:
 				hidden= !hidden;
 				break;
-		}		
+		}
 		refresh();
 	}
 	endwin();
