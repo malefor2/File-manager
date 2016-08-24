@@ -1,4 +1,4 @@
-/* TODO:
+/* TODO
  * sorting
  * rewrite list files function
  * dynamic array for files
@@ -232,11 +232,11 @@ int main(int argc, char *argv[]){
 	int view= 0;
 	scrollok(stdscr, true);
 	create_bar(len);
+	len= listFiles(hidden);
 	while(ch!= 'q'){
 		getmaxyx(stdscr, row, col);
 		move(row-1, 1);
 		closedir(dir);
-		len= listFiles(hidden);
 		if(len<1){
 			clear();
 		}
@@ -278,9 +278,11 @@ int main(int argc, char *argv[]){
 					sel= 0;
 					view= 0;
 				}
+				len= listFiles(hidden);
 				break;
 			case KEY_LEFT:
 				go_back();
+				len= listFiles(hidden);
 				sel= 0;
 				view= 0;
 				break;
