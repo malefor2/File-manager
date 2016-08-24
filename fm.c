@@ -1,9 +1,10 @@
-/*TODO:
-* rewrite list files function
-* dynamic array for files
-* more commands, searching
-* sort out colors
-*/
+/* TODO:
+ * sorting
+ * rewrite list files function
+ * dynamic array for files
+ * more commands, searching
+ * sort out colors
+ */
 
 #include<stdio.h>
 #include<curses.h>
@@ -21,13 +22,14 @@ char del(char*);
 char curdir[255];
 int row, col;
 void sortAbc(int);
-int kek;
 
-struct fileInfo{
-	char *name;
+typedef struct{
+	char name[255];
 	int dir;
 	int size;
-}file[10000], temp;
+}fileInfo;
+
+fileInfo file[10000];
 
 int listFiles(bool show_hidden){
 	int n= 0;
@@ -58,7 +60,7 @@ int listFiles(bool show_hidden){
 				else{
 					file[n].dir= 0;
 				}
-				file[j].name= ent->d_name;
+				strcpy(file[j].name, ent->d_name);
 				j++;
 				n++;
 				del(path);
@@ -73,14 +75,12 @@ int listFiles(bool show_hidden){
 			else{
 				file[n].dir= 0;
 			}
-			file[j].name= ent->d_name;
+			strcpy(file[j].name, ent->d_name);
 			j++;
 			n++;
 			del(path);
 		}
-		kek++;
 	}
-	sortAbc(n);
 	return n;
 }
 
@@ -175,7 +175,7 @@ void getCommand(){
 	//mvscanw(row-1, 2, "%s", cmd);
 	if(strcmp(cmd, "delete")== 0){
 		if(file[sel].dir== 1){
-			printw("%s is a directory, delete?[y/n]", file[sel].name);
+			mvprintw(row-1, 1, "%s is a directory, delete?[y/n]", file[sel].name);
 			if(getch()!= 'y'){
 				noecho();
 				return;
@@ -196,6 +196,7 @@ void getCommand(){
 }
 
 void sortAbc(int length){
+	fileInfo temp;
 	for(int i= 1; i<length; i++){
 		for(int j= 0; j<length-i; j++){
 			if(strcmp(file[j].name, file[j+1].name)>0){
@@ -236,11 +237,8 @@ int main(int argc, char *argv[]){
 		move(row-1, 1);
 		closedir(dir);
 		len= listFiles(hidden);
-		//dir= NULL;
-		//closedir(dir);
 		if(len<1){
 			clear();
-			file[0].name= "empty";
 		}
 		if(len-1<sel){
 			sel=len-1;
@@ -253,7 +251,7 @@ int main(int argc, char *argv[]){
 					break;
 				}
 				sel--;
-				if(len>row){
+				if(len>row-2){
 					if(sel<view+2){
 						view--;
 					}
@@ -264,7 +262,7 @@ int main(int argc, char *argv[]){
 					break;
 				}
 				sel++;
-				if(len>row){
+				if(len>row-2){
 					if(sel>view+row-5){
 						view++;
 					}
