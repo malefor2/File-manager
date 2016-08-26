@@ -1,4 +1,4 @@
-/* TODO
+/* TODO:
  * sorting
  * rewrite list files function
  * dynamic array for files
@@ -29,7 +29,7 @@ typedef struct{
 	int size;
 }fileInfo;
 
-fileInfo file[10000];
+fileInfo file[100000];
 
 int listFiles(bool show_hidden){
 	int n= 0;
@@ -116,8 +116,13 @@ WINDOW *list_window(int len, int cam){
 	for(int i= cam; i<w; i++){
 		if(sel== i){
 			wattron(win, A_REVERSE);
+			if(file[i].dir== 1){
+				wattron(win, A_BOLD);
+			}
 			wprintw(win, "%s\n", file[i].name);
+			wattroff(win, A_BOLD);
 			wattroff(win, A_REVERSE);
+
 		}
 		else{
 			if(file[i].dir== 1){
@@ -217,10 +222,11 @@ int main(int argc, char *argv[]){
 		strcpy(curdir, argv[1]);
 	}
 	initscr();
+	use_default_colors();
 	start_color();
 	use_default_colors();
 	init_color(COLOR_RED, 28, 28, 28);
-	init_pair(1, COLOR_GREEN, COLOR_BLACK);
+	init_pair(1, COLOR_GREEN, -1);
 	init_pair(2, COLOR_BLUE, COLOR_RED);
 	curs_set(0);
 	keypad(stdscr, true);
@@ -228,6 +234,7 @@ int main(int argc, char *argv[]){
 	noecho();
 	int ch;
 	int len;
+	int prev= 0;
 	bool hidden= false;
 	int view= 0;
 	scrollok(stdscr, true);
@@ -237,6 +244,7 @@ int main(int argc, char *argv[]){
 		getmaxyx(stdscr, row, col);
 		move(row-1, 1);
 		closedir(dir);
+		len= listFiles(hidden);
 		if(len<1){
 			clear();
 		}
@@ -247,7 +255,7 @@ int main(int argc, char *argv[]){
 		create_bar(len);
 		switch(ch= getch()){
 			case KEY_UP:
-				if(sel== 0){
+				if(sel== 0 || len<1){
 					break;
 				}
 				sel--;
@@ -269,6 +277,7 @@ int main(int argc, char *argv[]){
 				}
 				break;
 			case 10: case KEY_RIGHT:
+				prev= sel;
 				if(file[sel].dir== 1){
 					if(strlen(curdir)>2){
 						strcat(curdir, "/");
@@ -278,12 +287,12 @@ int main(int argc, char *argv[]){
 					sel= 0;
 					view= 0;
 				}
-				len= listFiles(hidden);
+				//len= listFiles(hidden);
 				break;
 			case KEY_LEFT:
 				go_back();
-				len= listFiles(hidden);
-				sel= 0;
+				//len= listFiles(hidden);
+				sel= prev;
 				view= 0;
 				break;
 			case 'S':
