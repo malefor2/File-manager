@@ -1,15 +1,23 @@
 /* TODO:
- * sorting
  * rewrite list files function
  * dynamic array for files
  * more commands, searching
  * sort out colors
+ * better controls
+ * config file
+ * command array
+ * fix deletedir
+ * size sort
+ */
+
+/* BUGS:
  */
 
 #include<stdio.h>
 #include<curses.h>
 #include<dirent.h>
 #include<string.h>
+#include<strings.h>
 #include<unistd.h>
 #include<sys/types.h>
 #include<sys/stat.h>
@@ -29,7 +37,26 @@ typedef struct{
 	int size;
 }fileInfo;
 
-fileInfo file[100000];
+fileInfo file[10000];
+
+int compareName(const void *s1, const void *s2){
+	fileInfo *fileInfo1 = (fileInfo *)s1;
+	fileInfo *fileInfo2 = (fileInfo *)s2;
+	return strcasecmp(fileInfo1->name, fileInfo2->name);
+}
+
+int compareSize(const void *s1, const void *s2){
+	fileInfo *fileInfo1 = (fileInfo *)s1;
+	fileInfo *fileInfo2 = (fileInfo *)s1;
+	if(fileInfo1<fileInfo2){
+		return 1;
+	}
+	if(fileInfo1==fileInfo2){
+		return 0;
+	}
+	else
+		return -1;
+}
 
 int listFiles(bool show_hidden){
 	int n= 0;
@@ -81,6 +108,7 @@ int listFiles(bool show_hidden){
 			del(path);
 		}
 	}
+	qsort(file, n, sizeof(fileInfo), compareName);
 	return n;
 }
 
@@ -94,6 +122,7 @@ WINDOW *create_bar(int len){
 	wattroff(loc_bar, A_BOLD);
 	wrefresh(stdscr);
 	wrefresh(loc_bar);
+	wclear(loc_bar);
 	return loc_bar;
 }
 
@@ -136,7 +165,7 @@ WINDOW *list_window(int len, int cam){
 				wprintw(win, "%s\n", file[i].name);
 			}
 		}
-		//mvwprintw(win, i, col,  "%d\n", file[i].size);
+		//mvwprintw(win, i, col-4,  "%d\n", file[i].size);
 		wrefresh(stdscr);
 		wrefresh(win);
 	}
@@ -148,7 +177,7 @@ void go_back(){
 	for(i= strlen(curdir); i>0; i--){
 		if(curdir[i]== '/'){
 			curdir[i]= '\0';
-			break;
+	break;
 		}
 	}
 	if(i<=2){
@@ -169,6 +198,7 @@ char del(char *path){
 }
 
 void getCommand(){
+	char *command[]= {"delete"};
 	char cmd[20];
 	char path[255];
 	strcpy(path, curdir);
@@ -177,11 +207,15 @@ void getCommand(){
 	echo();
 	mvaddch(row-1, 1, ':');
 	mvgetstr(row-1, 2, cmd);
-	//mvscanw(row-1, 2, "%s", cmd);
 	if(strcmp(cmd, "delete")== 0){
 		if(file[sel].dir== 1){
 			mvprintw(row-1, 1, "%s is a directory, delete?[y/n]", file[sel].name);
-			if(getch()!= 'y'){
+			if(getch()== 'y'){
+				deleteDir(path);
+				noecho();
+				return;
+			}
+			else{
 				noecho();
 				return;
 			}
@@ -193,24 +227,8 @@ void getCommand(){
 		else{
 			printw("error deleting file");
 		}
-		noecho();
-		return;
 	}
 	noecho();
-	return;
-}
-
-void sortAbc(int length){
-	fileInfo temp;
-	for(int i= 1; i<length; i++){
-		for(int j= 0; j<length-i; j++){
-			if(strcmp(file[j].name, file[j+1].name)>0){
-				temp= file[j];
-				file[j]= file[j+1];
-				file[j+1]= temp;
-			}
-		}
-	}
 	return;
 }
 
@@ -232,19 +250,23 @@ int main(int argc, char *argv[]){
 	keypad(stdscr, true);
 	getmaxyx(stdscr, row, col);
 	noecho();
+	int histrow, histcol;
 	int ch;
 	int len;
 	int prev= 0;
 	bool hidden= false;
 	int view= 0;
 	scrollok(stdscr, true);
-	create_bar(len);
 	len= listFiles(hidden);
+	create_bar(len);
 	while(ch!= 'q'){
 		getmaxyx(stdscr, row, col);
+		if(histrow!= row || histcol!= col){
+			clear();
+		}
+		histrow= row;
+		histcol= col;
 		move(row-1, 1);
-		closedir(dir);
-		len= listFiles(hidden);
 		if(len<1){
 			clear();
 		}
@@ -287,11 +309,11 @@ int main(int argc, char *argv[]){
 					sel= 0;
 					view= 0;
 				}
-				//len= listFiles(hidden);
+				len= listFiles(hidden);
 				break;
-			case KEY_LEFT:
+			case KEY_LEFT: case KEY_BACKSPACE:
 				go_back();
-				//len= listFiles(hidden);
+				len= listFiles(hidden);
 				sel= prev;
 				view= 0;
 				break;
@@ -303,8 +325,11 @@ int main(int argc, char *argv[]){
 			case ':':
 				getCommand();
 				clear();
+				len= listFiles(hidden);
 				break;
 			case 8:
+				sel= 0;
+				view= 0;
 				hidden= !hidden;
 				break;
 		}

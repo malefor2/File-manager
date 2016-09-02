@@ -1,1 +1,1 @@
-int deleteFile(char*);
+int deleteDir(char*);
