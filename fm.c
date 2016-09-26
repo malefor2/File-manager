@@ -1,12 +1,16 @@
 /* TODO:
+ * permissions
+ * strstr()
+ * view protection system
+ * selecting multiple files
  * rewrite list files function
  * dynamic array for files
  * more commands, searching
  * sort out colors
  * better controls
  * config file
- * command array
  * fix deletedir
+ * fix cmpare size
  * size sort
  */
 
@@ -17,7 +21,6 @@
 #include<curses.h>
 #include<dirent.h>
 #include<string.h>
-#include<strings.h>
 #include<unistd.h>
 #include<sys/types.h>
 #include<sys/stat.h>
@@ -29,7 +32,7 @@ int sel= 0;
 char del(char*);
 char curdir[255];
 int row, col;
-void sortAbc(int);
+int find(char*, int);
 
 typedef struct{
 	char name[255];
@@ -57,6 +60,19 @@ int compareSize(const void *s1, const void *s2){
 	else
 		return -1;
 }
+/*
+void getFileInfo(){	
+	strcat(path, ent->d_name);
+	stat(path, &type);
+	file[n].size= type.st_size;
+	if(S_ISDIR(type.st_mode)){
+		file[n].dir= 1;
+	}
+	else{
+		file[n].dir= 0;
+	}
+	strcpy(file[j].name, ent->d_name);
+}*/
 
 int listFiles(bool show_hidden){
 	int n= 0;
@@ -87,8 +103,7 @@ int listFiles(bool show_hidden){
 				else{
 					file[n].dir= 0;
 				}
-				strcpy(file[j].name, ent->d_name);
-				j++;
+				strcpy(file[n].name, ent->d_name);
 				n++;
 				del(path);
 			}
@@ -102,8 +117,7 @@ int listFiles(bool show_hidden){
 			else{
 				file[n].dir= 0;
 			}
-			strcpy(file[j].name, ent->d_name);
-			j++;
+			strcpy(file[n].name, ent->d_name);
 			n++;
 			del(path);
 		}
@@ -172,12 +186,23 @@ WINDOW *list_window(int len, int cam){
 	return win;
 }
 
-void go_back(){
-	int i;
-	for(i= strlen(curdir); i>0; i--){
+void go_back(char buf[]){
+	int i, k, l=0;
+	int s= strlen(curdir);
+	for(k= s; k>=0; k--){
+		if(curdir[k]== '/'){
+			for(k++; k<s; k++){
+				buf[l]= curdir[k];
+				l++;
+			}
+			buf[l]= '\0';
+			break;
+		}
+	}
+	for(i= s; i>0; i--){
 		if(curdir[i]== '/'){
-			curdir[i]= '\0';
-	break;
+			curdir[i] = '\0';
+			break;
 		}
 	}
 	if(i<=2){
@@ -197,17 +222,26 @@ char del(char *path){
 	return *path;
 }
 
-void getCommand(){
-	char *command[]= {"delete"};
-	char cmd[20];
+int find(char *obj, int len){
+	int i = 0;
+	for(i; i<len; i++){
+		if(strcasecmp(obj, file[i].name) == 0){
+			return i;
+		}
+	}
+	return sel;
+}
+
+void getCommand(int len){
+	char cmd[2][255];
 	char path[255];
 	strcpy(path, curdir);
 	strcat(path, "/");
 	strcat(path, file[sel].name);
 	echo();
 	mvaddch(row-1, 1, ':');
-	mvgetstr(row-1, 2, cmd);
-	if(strcmp(cmd, "delete")== 0){
+	mvscanw(row-1, 2, "%s %s", cmd[0], cmd[1]);
+	if(strcmp(cmd[0], "delete")== 0){
 		if(file[sel].dir== 1){
 			mvprintw(row-1, 1, "%s is a directory, delete?[y/n]", file[sel].name);
 			if(getch()== 'y'){
@@ -227,6 +261,10 @@ void getCommand(){
 		else{
 			printw("error deleting file");
 		}
+	}
+	if(strcmp(cmd[0], "find")== 0){
+		sel = find(cmd[1], len);
+		return;
 	}
 	noecho();
 	return;
@@ -253,14 +291,17 @@ int main(int argc, char *argv[]){
 	int histrow, histcol;
 	int ch;
 	int len;
-	int prev= 0;
 	bool hidden= false;
 	int view= 0;
+	char buf[255];
+	char *kek = "reset";
 	scrollok(stdscr, true);
 	len= listFiles(hidden);
 	create_bar(len);
 	while(ch!= 'q'){
+		closedir(dir);
 		getmaxyx(stdscr, row, col);
+		len= listFiles(hidden);
 		if(histrow!= row || histcol!= col){
 			clear();
 		}
@@ -299,7 +340,6 @@ int main(int argc, char *argv[]){
 				}
 				break;
 			case 10: case KEY_RIGHT:
-				prev= sel;
 				if(file[sel].dir== 1){
 					if(strlen(curdir)>2){
 						strcat(curdir, "/");
@@ -312,18 +352,18 @@ int main(int argc, char *argv[]){
 				len= listFiles(hidden);
 				break;
 			case KEY_LEFT: case KEY_BACKSPACE:
-				go_back();
+				go_back(buf);
+				view= sel-row/2;
 				len= listFiles(hidden);
-				sel= prev;
-				view= 0;
+				sel = find(buf, len);
 				break;
 			case 'S':
 				endwin();
-				system("source ./test.sh");
+				system("bash & cd ~/code");
 				exit(EXIT_SUCCESS);
 				break;
 			case ':':
-				getCommand();
+				getCommand(len);
 				clear();
 				len= listFiles(hidden);
 				break;
@@ -331,6 +371,35 @@ int main(int argc, char *argv[]){
 				sel= 0;
 				view= 0;
 				hidden= !hidden;
+				len= listFiles(hidden);
+				break;
+			case KEY_HOME:
+				sel= 0;
+				view= 0;
+				break;
+			case KEY_END:
+				sel= len;
+				view= len-row+3;
+				break;
+			case KEY_NPAGE:
+				sel+= row;
+				view+= row;
+				if(sel>len){
+					sel= len;
+				}
+				if(view>(len-row)){
+					view= len-row+3;
+				}
+				break;
+			case KEY_PPAGE:
+				sel-= row;
+				view-= row;
+				if(sel<0 || view< 0){
+					sel= 0;
+					view= 0;
+				}
+				break;
+			default:
 				break;
 		}
 		refresh();
