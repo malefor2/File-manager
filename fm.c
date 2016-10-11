@@ -1,7 +1,7 @@
-/* TODO:
+/*
+ * TODO:
+ * search multiple hits
  * permissions
- * strstr()
- * view protection system
  * selecting multiple files
  * rewrite list files function
  * dynamic array for files
@@ -10,8 +10,6 @@
  * better controls
  * config file
  * fix deletedir
- * fix cmpare size
- * size sort
  */
 
 /* BUGS:
@@ -27,12 +25,18 @@
 #include<stdlib.h>
 #include"cmds.h"
 
+enum sorting{
+	SIZE,
+	NAME
+};
+
 DIR *dir;
 int sel= 0;
 char del(char*);
 char curdir[255];
 int row, col;
 int find(char*, int);
+int sort = NAME;
 
 typedef struct{
 	char name[255];
@@ -50,29 +54,9 @@ int compareName(const void *s1, const void *s2){
 
 int compareSize(const void *s1, const void *s2){
 	fileInfo *fileInfo1 = (fileInfo *)s1;
-	fileInfo *fileInfo2 = (fileInfo *)s1;
-	if(fileInfo1<fileInfo2){
-		return 1;
-	}
-	if(fileInfo1==fileInfo2){
-		return 0;
-	}
-	else
-		return -1;
+	fileInfo *fileInfo2 = (fileInfo *)s2;
+	return (fileInfo2->size - fileInfo1->size);
 }
-/*
-void getFileInfo(){	
-	strcat(path, ent->d_name);
-	stat(path, &type);
-	file[n].size= type.st_size;
-	if(S_ISDIR(type.st_mode)){
-		file[n].dir= 1;
-	}
-	else{
-		file[n].dir= 0;
-	}
-	strcpy(file[j].name, ent->d_name);
-}*/
 
 int listFiles(bool show_hidden){
 	int n= 0;
@@ -111,6 +95,7 @@ int listFiles(bool show_hidden){
 		else{
 			strcat(path, ent->d_name);
 			stat(path, &type);
+			file[n].size= type.st_size;
 			if(S_ISDIR(type.st_mode)){
 				file[n].dir= 1;
 			}
@@ -122,7 +107,12 @@ int listFiles(bool show_hidden){
 			del(path);
 		}
 	}
-	qsort(file, n, sizeof(fileInfo), compareName);
+	if(sort == SIZE){
+		qsort(file, n, sizeof(fileInfo), compareSize);
+	}
+	else if(sort == NAME){
+		qsort(file, n, sizeof(fileInfo), compareName);
+	}
 	return n;
 }
 
@@ -179,7 +169,7 @@ WINDOW *list_window(int len, int cam){
 				wprintw(win, "%s\n", file[i].name);
 			}
 		}
-		//mvwprintw(win, i, col-4,  "%d\n", file[i].size);
+		mvwprintw(win, i, col-10,  "%d\n", file[i].size);
 		wrefresh(stdscr);
 		wrefresh(win);
 	}
@@ -224,8 +214,9 @@ char del(char *path){
 
 int find(char *obj, int len){
 	int i = 0;
+	int found[100];
 	for(i; i<len; i++){
-		if(strcasecmp(obj, file[i].name) == 0){
+		if(strstr(file[i].name, obj) != NULL){
 			return i;
 		}
 	}
@@ -264,7 +255,16 @@ void getCommand(int len){
 	}
 	if(strcmp(cmd[0], "find")== 0){
 		sel = find(cmd[1], len);
+		noecho();
 		return;
+	}
+	if(strcmp(cmd[0], "sort")==0){
+		if(strcmp(cmd[1], "size")){
+			sort = 1;
+		}
+		else if(strcmp(cmd[1], "name")){
+			sort = 0;
+		}
 	}
 	noecho();
 	return;
@@ -401,6 +401,9 @@ int main(int argc, char *argv[]){
 				break;
 			default:
 				break;
+		}
+		if(sel > view+row || sel < view){
+			view = sel-row/2;
 		}
 		refresh();
 	}
