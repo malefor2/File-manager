@@ -1,20 +1,22 @@
 /*
- * TODO:
- * search multiple hits
- * permissions
- * selecting multiple files
- * rewrite list files function
- * dynamic array for files
- * more commands, searching
- * sort out colors
- * better controls
- * config file
- * fix deletedir
- */
+* TODO:
+* alert send
+* better command system
+* permissions
+* selecting multiple files
+* dynamic array for files
+* more commands, searching
+* sort out colors
+* better controls
+* config file
+* fix deletedir
+*/
 
-/* BUGS:
- */
+/*
+* BUGS:
+*/
 
+#define _GNU_SOURCE
 #include<stdio.h>
 #include<curses.h>
 #include<dirent.h>
@@ -30,13 +32,13 @@ enum sorting{
 	NAME
 };
 
-DIR *dir;
 int sel= 0;
 char del(char*);
 char curdir[255];
 int row, col;
-int find(char*, int);
 int sort = NAME;
+int found[100];
+int nFound = 0;
 
 typedef struct{
 	char name[255];
@@ -59,9 +61,9 @@ int compareSize(const void *s1, const void *s2){
 }
 
 int listFiles(bool show_hidden){
+	DIR *dir;
 	int n= 0;
 	struct stat type;
-	int j= 0;
 	char path[255];
 	strcpy(path, curdir);
 	strcat(path, "/");
@@ -113,6 +115,8 @@ int listFiles(bool show_hidden){
 	else if(sort == NAME){
 		qsort(file, n, sizeof(fileInfo), compareName);
 	}
+	closedir(dir);
+	dir = NULL;
 	return n;
 }
 
@@ -122,7 +126,7 @@ WINDOW *create_bar(int len){
 	wbkgd(loc_bar, COLOR_PAIR(2));
 	wattron(loc_bar, A_BOLD);
 	wprintw(loc_bar, "%s", curdir);
-	mvwprintw(loc_bar, 0, col-12, "%4i/%4i", sel+1, len, len);
+	wprintw(loc_bar, "%3i/%i", sel+1, len);
 	wattroff(loc_bar, A_BOLD);
 	wrefresh(stdscr);
 	wrefresh(loc_bar);
@@ -169,11 +173,18 @@ WINDOW *list_window(int len, int cam){
 				wprintw(win, "%s\n", file[i].name);
 			}
 		}
-		mvwprintw(win, i, col-10,  "%d\n", file[i].size);
+		if(file[i].dir == 0){
+			//mvwprintw(win, i, col-20,  "%d\n", file[i].size);
+		}
 		wrefresh(stdscr);
 		wrefresh(win);
 	}
 	return win;
+}
+
+void alertSend(char *str){
+	mvprintw(row-1, 10, str);
+	return;
 }
 
 void go_back(char buf[]){
@@ -214,13 +225,35 @@ char del(char *path){
 
 int find(char *obj, int len){
 	int i = 0;
-	int found[100];
 	for(i; i<len; i++){
 		if(strstr(file[i].name, obj) != NULL){
 			return i;
 		}
 	}
 	return sel;
+}
+
+int search(char *obj, int len){
+	int i = 0;
+	memset(found, 0, 100);
+	nFound = 0;
+	for(i; i<len; i++){
+		if(strcasestr(file[i].name, obj) != NULL){
+			found[nFound] = i;
+			nFound++;
+		}
+	}
+	if(nFound > 1){
+		alertSend("multiple items found, n, N");
+		refresh();
+		getch();
+	}
+	if(found[0] == 0){
+		return sel;
+	}
+	else{
+		return found[0];
+	}
 }
 
 void getCommand(int len){
@@ -234,7 +267,7 @@ void getCommand(int len){
 	mvscanw(row-1, 2, "%s %s", cmd[0], cmd[1]);
 	if(strcmp(cmd[0], "delete")== 0){
 		if(file[sel].dir== 1){
-			mvprintw(row-1, 1, "%s is a directory, delete?[y/n]", file[sel].name);
+			printw("%s is a directory, delete?[y/n]", file[sel].name);
 			if(getch()== 'y'){
 				deleteDir(path);
 				noecho();
@@ -254,7 +287,7 @@ void getCommand(int len){
 		}
 	}
 	if(strcmp(cmd[0], "find")== 0){
-		sel = find(cmd[1], len);
+		sel = search(cmd[1], len);
 		noecho();
 		return;
 	}
@@ -275,7 +308,7 @@ int main(int argc, char *argv[]){
 		getcwd(curdir, sizeof(curdir));
 	}
 	else{
-		strcpy(curdir, argv[1]);
+		strncpy(curdir, argv[1], 100);
 	}
 	initscr();
 	use_default_colors();
@@ -288,26 +321,25 @@ int main(int argc, char *argv[]){
 	keypad(stdscr, true);
 	getmaxyx(stdscr, row, col);
 	noecho();
+	move(row-1, 1);
 	int histrow, histcol;
 	int ch;
 	int len;
+	int searchSel = 0;
+	int fnd = 0;
 	bool hidden= false;
 	int view= 0;
 	char buf[255];
-	char *kek = "reset";
 	scrollok(stdscr, true);
 	len= listFiles(hidden);
 	create_bar(len);
 	while(ch!= 'q'){
-		closedir(dir);
 		getmaxyx(stdscr, row, col);
-		len= listFiles(hidden);
 		if(histrow!= row || histcol!= col){
 			clear();
 		}
 		histrow= row;
 		histcol= col;
-		move(row-1, 1);
 		if(len<1){
 			clear();
 		}
@@ -399,10 +431,38 @@ int main(int argc, char *argv[]){
 					view= 0;
 				}
 				break;
+			case '/':
+				echo();
+				char obj[255];
+				mvaddch(row-1, 1, '/');
+				mvscanw(row-1, 2, "%s", obj);
+				sel = search(obj, len);
+				fnd = 0;
+				nFound--;
+				noecho();
+				break;
+			case 'n':
+				if(fnd >= nFound){
+					fnd = 0;
+				}
+				else{
+					fnd++;
+				}
+				sel = found[fnd];
+				break;
+			case 'N':
+				if(fnd <= 0){
+					fnd = nFound;
+				}
+				else{
+					fnd--;
+				}
+				sel = found[fnd];
+				break;
 			default:
 				break;
 		}
-		if(sel > view+row || sel < view){
+		if(sel > view+row-3 || sel < view){
 			view = sel-row/2;
 		}
 		refresh();
