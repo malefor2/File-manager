@@ -1,36 +1,16 @@
-#include<stdlib.h>
+#define _XOPEN_SOURCE 500
 #include<stdio.h>
-#include<dirent.h>
-#include<string.h>
+#include<ftw.h>
+#include<unistd.h>
 
-char dele(char *path){
-	int i;
-	for(i= strlen(path); i>0; i--){
-		if(path[i]== '/'){
-			path[i+1]= '\0';
-			break;
-		}
+int ftwdel(const char *path, const struct stat *st, int tf, struct FTW *buf){
+	int r = remove(path);
+	if(r){
+		perror(path);
 	}
-	return *path;
+	return r;
 }
 
 int deleteDir(char *path){
-	char *file;
-	printf("%s", path);
-	DIR *dir= opendir(path);
-	if(dir== NULL){
-		exit(0);
-	}
-	struct dirent *ent;
-	while((ent= readdir(dir))!= NULL){
-		if(strcmp(ent->d_name, "..")== 0 || strcmp(ent->d_name, ".")== 0){
-			continue;
-		}
-		strcat(file, ent->d_name);
-		remove(file);
-		dele(file);
-	}
-	closedir(dir);
-	remove(path);
-	return 0;
+	return nftw(path, ftwdel, 64, FTW_DEPTH | FTW_PHYS);
 }

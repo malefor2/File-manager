@@ -9,7 +9,6 @@
 * sort out colors
 * better controls
 * config file
-* fix deletedir
 */
 
 /*
@@ -126,7 +125,8 @@ WINDOW *create_bar(int len){
 	wbkgd(loc_bar, COLOR_PAIR(2));
 	wattron(loc_bar, A_BOLD);
 	wprintw(loc_bar, "%s", curdir);
-	wprintw(loc_bar, "%3i/%i", sel+1, len);
+	//wprintw(loc_bar, "%i", file[sel].size);
+	wprintw(loc_bar, "%*i/%i", col-strlen(curdir)-10, sel+1, len);
 	wattroff(loc_bar, A_BOLD);
 	wrefresh(stdscr);
 	wrefresh(loc_bar);
@@ -224,9 +224,8 @@ char del(char *path){
 }
 
 int find(char *obj, int len){
-	int i = 0;
-	for(i; i<len; i++){
-		if(strstr(file[i].name, obj) != NULL){
+	for(int i = 0; i<len; i++){
+		if(strcmp(file[i].name, obj) == 0){
 			return i;
 		}
 	}
@@ -234,10 +233,9 @@ int find(char *obj, int len){
 }
 
 int search(char *obj, int len){
-	int i = 0;
 	memset(found, 0, 100);
 	nFound = 0;
-	for(i; i<len; i++){
+	for(int i = 0; i<len; i++){
 		if(strcasestr(file[i].name, obj) != NULL){
 			found[nFound] = i;
 			nFound++;
@@ -325,7 +323,6 @@ int main(int argc, char *argv[]){
 	int histrow, histcol;
 	int ch;
 	int len;
-	int searchSel = 0;
 	int fnd = 0;
 	bool hidden= false;
 	int view= 0;
@@ -333,7 +330,7 @@ int main(int argc, char *argv[]){
 	scrollok(stdscr, true);
 	len= listFiles(hidden);
 	create_bar(len);
-	while(ch!= 'q'){
+	while(ch != 'q'){
 		getmaxyx(stdscr, row, col);
 		if(histrow!= row || histcol!= col){
 			clear();
@@ -349,7 +346,7 @@ int main(int argc, char *argv[]){
 		list_window(len, view);
 		create_bar(len);
 		switch(ch= getch()){
-			case KEY_UP:
+			case KEY_UP: case 'k':
 				if(sel== 0 || len<1){
 					break;
 				}
@@ -360,7 +357,7 @@ int main(int argc, char *argv[]){
 					}
 				}
 				break;
-			case KEY_DOWN:
+			case KEY_DOWN: case 'j':
 				if((sel+1)==len){
 					break;
 				}
@@ -371,7 +368,7 @@ int main(int argc, char *argv[]){
 					}
 				}
 				break;
-			case 10: case KEY_RIGHT:
+			case 10: case KEY_RIGHT: case 'l':
 				if(file[sel].dir== 1){
 					if(strlen(curdir)>2){
 						strcat(curdir, "/");
@@ -383,9 +380,9 @@ int main(int argc, char *argv[]){
 				}
 				len= listFiles(hidden);
 				break;
-			case KEY_LEFT: case KEY_BACKSPACE:
+			case KEY_LEFT: case KEY_BACKSPACE: case 'h':
 				go_back(buf);
-				view= sel-row/2;
+				view = sel-row/2;
 				len= listFiles(hidden);
 				sel = find(buf, len);
 				break;
