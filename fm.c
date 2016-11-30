@@ -1,13 +1,10 @@
 /*
 * TODO:
 * alert send
-* better command system
 * permissions
 * selecting multiple files
 * dynamic array for files
-* more commands, searching
 * sort out colors
-* better controls
 * config file
 */
 
@@ -184,6 +181,7 @@ WINDOW *list_window(int len, int cam){
 
 void alertSend(char *str){
 	mvprintw(row-1, 10, str);
+	refresh();
 	return;
 }
 
@@ -291,10 +289,10 @@ void getCommand(int len){
 	}
 	if(strcmp(cmd[0], "sort")==0){
 		if(strcmp(cmd[1], "size")){
-			sort = 1;
+			sort = SIZE;
 		}
 		else if(strcmp(cmd[1], "name")){
-			sort = 0;
+			sort = NAME;
 		}
 	}
 	noecho();
@@ -392,7 +390,9 @@ int main(int argc, char *argv[]){
 				exit(EXIT_SUCCESS);
 				break;
 			case ':':
+				fnd = 0;
 				getCommand(len);
+				nFound--;
 				clear();
 				len= listFiles(hidden);
 				break;
