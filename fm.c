@@ -24,8 +24,8 @@
 #include"cmds.h"
 
 enum sorting{
-	SIZE,
-	NAME
+	NAME,
+	SIZE
 };
 
 int sel= 0;
@@ -133,8 +133,9 @@ WINDOW *create_bar(int len){
 
 WINDOW *list_window(int len, int cam){
 	WINDOW *win;
-	if(cam<0)
+	if(cam<0){
 		cam= 0;
+	}
 	if(len>row-2){
 		if(cam>len-row+1)
 			cam= len-row+2;
@@ -180,8 +181,12 @@ WINDOW *list_window(int len, int cam){
 }
 
 void alertSend(char *str){
-	mvprintw(row-1, 10, str);
-	refresh();
+	WINDOW *alert = newwin(4, 15, col/2, row/2);
+	wbkgd(alert, COLOR_PAIR(3));
+	wprintw(alert, "%s", str);
+	wrefresh(alert);
+	getch();
+	clear();
 	return;
 }
 
@@ -241,8 +246,6 @@ int search(char *obj, int len){
 	}
 	if(nFound > 1){
 		alertSend("multiple items found, n, N");
-		refresh();
-		getch();
 	}
 	if(found[0] == 0){
 		return sel;
@@ -282,17 +285,17 @@ void getCommand(int len){
 			printw("error deleting file");
 		}
 	}
-	if(strcmp(cmd[0], "find")== 0){
+	if(strcmp(cmd[0], "find") == 0){
 		sel = search(cmd[1], len);
 		noecho();
 		return;
 	}
-	if(strcmp(cmd[0], "sort")==0){
+	if(strcmp(cmd[0], "sort") == 0){
 		if(strcmp(cmd[1], "size")){
-			sort = SIZE;
+			sort = NAME;
 		}
 		else if(strcmp(cmd[1], "name")){
-			sort = NAME;
+			sort = SIZE;
 		}
 	}
 	noecho();
@@ -313,6 +316,7 @@ int main(int argc, char *argv[]){
 	init_color(COLOR_RED, 28, 28, 28);
 	init_pair(1, COLOR_GREEN, -1);
 	init_pair(2, COLOR_BLUE, COLOR_RED);
+	init_pair(3, COLOR_BLACK, COLOR_GREEN);
 	curs_set(0);
 	keypad(stdscr, true);
 	getmaxyx(stdscr, row, col);
