@@ -11,6 +11,7 @@ int ftwdel(const char *path, const struct stat *st, int tf, struct FTW *buf){
 	return r;
 }
 
+
 int deleteDir(char *path){
 	return nftw(path, ftwdel, 64, FTW_DEPTH | FTW_PHYS);
 }
